@@ -25,6 +25,7 @@ The requirements of the cPanel server are the following:
 The requirements of the update server are the following:
 
 * Server with mod_rewrite enabled...this can be the same as the cPanel server, but could also be a distinct non-cPanel web server with PHP, mod_rewrite capability.
+* PHP cURL extension enabled.
 * A domain or sub-domain to host the update script, e.g. ddns.example.com.
 * Properly configured SSL/TLS certificate issued by a certificate authority (self-signed certificates are usable with modification to the code, but is not supported by the default configuration).
 
