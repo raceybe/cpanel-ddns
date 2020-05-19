@@ -3,7 +3,7 @@
 * Configuration
 ***********************/
 
-require "config.php";
+require "../../ddns.config.php";
 
 /*************************
 * Execution
@@ -27,9 +27,17 @@ $requestHostname = strtolower($_GET['hostname']);
 //TODO: sanitize values
 if (isset($_GET['myip']))		{
 	$requestIp = $_GET['myip'];
-}else{
-	$requestIp = $_SERVER['REMOTE_ADDR'];
+//TODO: check, if $_SERVER['REMOTE_ADDR'] is IP4 or IP6 (depends on how the client connected)
+//}else{
+//	$requestIp = $_SERVER['REMOTE_ADDR'];
 }
+
+//The request IPv6 i.e. the ddns IP to update the hostname with
+//TODO: sanitize values
+if (isset($_GET['myip6']))               {
+        $requestIp6 = $_GET['myip6'];
+}
+
 //The request username and password i.e. identifies a value user to update the hostname
 //TODO: sanitize values...necessary?
 list($requestUser, $requestPassword) = explode(':' , base64_decode(substr($_SERVER['REDIRECT_HTTP_AUTHORIZATION'], 6)));
@@ -42,7 +50,7 @@ if ($hostnameIndex === false){
 
 //Exit if credentials don't match the domain authorized user
 if (!(($authUsers[$hostnameIndex] === $requestUser) && ($authPasswords[$hostnameIndex] === $requestPassword))){
-	exit("badauth $requestIp $requestHostname $requestUser $requestPassword");
+	exit("badauth $requestIp $requestHostname");
 }
 
 $query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=DomainLookup&cpanel_jsonapi_func=getbasedomains";
