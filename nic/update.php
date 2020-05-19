@@ -3,7 +3,7 @@
 * Configuration
 ***********************/
 
-require "../../ddns.config.php";
+require "config.php";
 
 /*************************
 * Execution
