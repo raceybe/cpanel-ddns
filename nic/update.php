@@ -3,7 +3,7 @@
 * Configuration
 ***********************/
 
-require "config.php";
+require "../../ddns.config.php";
 
 /*************************
 * Execution
@@ -11,6 +11,7 @@ require "config.php";
 //Make simple API call to ensure credentials are valid
 $query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=Rand&cpanel_jsonapi_func=getranddata";
 $response = queryApi($cpUser, $cpPassword, $cpServer, $cpPort, $query);
+//exit(json_encode($response->cpanelresult));
 $errorText=$response->cpanelresult->error;
 
 //check if call was successful or if it returned an error, probably due to credentials
@@ -41,7 +42,7 @@ if ($hostnameIndex === false){
 
 //Exit if credentials don't match the domain authorized user
 if (!(($authUsers[$hostnameIndex] === $requestUser) && ($authPasswords[$hostnameIndex] === $requestPassword))){
-	exit("badauth $requestIp $requestHostname");
+	exit("badauth $requestIp $requestHostname $requestUser $requestPassword");
 }
 
 $query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=DomainLookup&cpanel_jsonapi_func=getbasedomains";
@@ -53,7 +54,7 @@ $jsonUserDomains=$jsonCpanelResult->data;
 
 //check if the API result indicates an error
 if($result == 0){
-	exit("911 $requestIp $requestHostname");
+	exit("911 $requestIp $requestHostname $jsonCpanelResult");
 }
 
 //check if no domains were returned for the user
@@ -93,9 +94,9 @@ foreach($possibleDomains as $possibleDomain){
 	if($indexOfDomainPart !== false){
 		//found a domain, now check to see if the hostname record exists for this domain
 		$matchedDomainPart=$userDomains[$indexOfDomainPart];
-		
+
 		//Query for $requestHostname in the list of $matchedDomainPart records
-		$query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=ZoneEdit&cpanel_jsonapi_func=fetchzone_records&domain=" . $matchedDomainPart . "&name=" . $requestHostname . ".";
+		$query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=ZoneEdit&cpanel_jsonapi_func=fetchzone_records&domain=" . $matchedDomainPart . "&name=" . $requestHostname . ".&type=A";
 		$response = queryApi($cpUser, $cpPassword, $cpServer, $cpPort, $query);
 		$jsonCpanelResult=$response->cpanelresult;
 		$result=$jsonCpanelResult->event->result;
@@ -106,11 +107,11 @@ foreach($possibleDomains as $possibleDomain){
 				//index the first/only record since there should only be one match
 				$hostnameLine=$jsonCpanelResult->data[0]->line;
 				$hostnameIp=$jsonCpanelResult->data[0]->address;
-				
+
 				//matched a record, so stop foreach loop
 				$foundHostnameRecord=true;
 				break;
-			}			
+			}
 		}
 	}
 }
@@ -121,16 +122,19 @@ if($foundHostnameRecord){
 	if($hostnameIp == $requestIp){
 		exit("nochg $requestIp $requestHostname");
 	}
-	
+	//hostPart is empty when we edit the domain-record itself
+	if($hostPart == ""){
+		$hostPart = $domainPart.".";
+	}
 	//found the record, so update it since we know the $domainPart, $hostPart, and $hostnameLine
 	$query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=ZoneEdit&cpanel_jsonapi_func=edit_zone_record&domain=" . $domainPart . "&name=" . $hostPart . "&line=" . $hostnameLine . "&type=A" . "&address=" . $requestIp;
-	$response = queryApi($cpUser, $cpPassword, $cpServer, $cpPort, $query);
+        $response = queryApi($cpUser, $cpPassword, $cpServer, $cpPort, $query);
 	$jsonCpanelResult=$response->cpanelresult;
 	$status=$jsonCpanelResult->data[0]->result->status;
 	if($status == 1){
 		exit("good $requestIp $requestHostname");
 	}else{
-		exit("911 $requestIp $requestHostname\nAPI Error");
+		exit("911 $requestIp $requestHostname\nAPI Error \n".json_encode($jsonCpanelResult)."\n URL ".json_encode($query));
 	}
 }else{
 	//didn't find the record, so return the nohost response
@@ -143,15 +147,15 @@ if($foundHostnameRecord){
 
 function queryApi($user, $password, $server, $port, $query){
 	$headerArray[0] = "Authorization: Basic " . base64_encode($user.":".$password);
-	
+
 	$curl = curl_init();
 	curl_setopt($curl, CURLOPT_RETURNTRANSFER,true);
 	curl_setopt($curl, CURLOPT_HTTPHEADER, $headerArray);
 	curl_setopt($curl, CURLOPT_URL, $server . ":" . $port . $query);
-	
+
 	$response = curl_exec($curl);
 	curl_close($curl);
-	
+
 	$json=json_decode($response);
 
 	return $json;
