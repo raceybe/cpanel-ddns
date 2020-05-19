@@ -11,7 +11,6 @@ require "config.php";
 //Make simple API call to ensure credentials are valid
 $query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=Rand&cpanel_jsonapi_func=getranddata";
 $response = queryApi($cpUser, $cpPassword, $cpServer, $cpPort, $query);
-//exit(json_encode($response->cpanelresult));
 $errorText=$response->cpanelresult->error;
 
 //check if call was successful or if it returned an error, probably due to credentials
