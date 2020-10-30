@@ -1,6 +1,9 @@
 <?php
 require 'testConfig.php';
 
+$base64auth=base64_encode($login.":".$password);
+$header[0] = "Authorization: Basic $base64auth";
+
 //Setup curl object
 $curl = curl_init();
 curl_setopt($curl, CURLOPT_RETURNTRANSFER, TRUE);
