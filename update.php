@@ -3,43 +3,44 @@
 * Configuration
 ***********************/
 
-require "config.php";
+require 'serverConfig.php';
 
 /*************************
-* Execution
+* validate authorization
 **************************/
-//Make simple API call to ensure credentials are valid
-$query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=Rand&cpanel_jsonapi_func=getranddata";
-$response = queryApi($cpUser, $cpPassword, $cpServer, $cpPort, $query);
-$errorText=$response->cpanelresult->error;
-
-//check if call was successful or if it returned an error, probably due to credentials
-if($errorText == "Access denied"){
-	exit("911\nAPI access denied");
-}
-
-//The request hostname i.e. the ddns host to be updated
-//TODO: sanitize values
-$requestHostname = strtolower($_GET['hostname']);
-
-//The request IP i.e. the ddns IP to update the hostname with
-//TODO: sanitize values
-if (isset($_GET['myip']))		{
-	$requestIp = $_GET['myip'];
-//TODO: check, if $_SERVER['REMOTE_ADDR'] is IP4 or IP6 (depends on how the client connected)
-//}else{
-//	$requestIp = $_SERVER['REMOTE_ADDR'];
-}
-
-//The request IPv6 i.e. the ddns IP to update the hostname with
-//TODO: sanitize values
-if (isset($_GET['myip6']))               {
-        $requestIp6 = $_GET['myip6'];
-}
-
 //The request username and password i.e. identifies a value user to update the hostname
 //TODO: sanitize values...necessary?
-list($requestUser, $requestPassword) = explode(':' , base64_decode(substr($_SERVER['REDIRECT_HTTP_AUTHORIZATION'], 6)));
+$requestAuthString = apache_request_headers()['Authorization'];
+
+// parse the auth string to see what kind of authentication is provided
+if (!substr($requestAuthString, 0, 5) == "Basic ") {
+	exit('911\nAuthorization malformed');
+}
+
+list($requestUser, $requestPassword) = explode(':', base64_decode(substr($requestAuthString, 6)));
+
+/******************************************
+* validate cPanel credentials provided
+*******************************************/
+// check login is provided
+if (strlen($requestUser) == 0){
+	exit('911\nAuthorization user not provided');
+}
+// check password is provided
+if (strlen($requestPassword) == 0){
+	exit('911\nAuthorization password not provided');
+}
+
+/******************************************
+* Verify request matches acceptable format
+*******************************************/
+// The request hostname i.e. the ddns host to be updated
+if (!isset($_GET['hostname'])) {
+	exit('911\ntarget hostname not specified');
+}
+
+// TODO: sanitize values
+$requestHostname = strtolower($_GET['hostname']);
 
 //Exit if domain not listed as a valid domain
 $hostnameIndex = array_search($requestHostname,$authHostnames);
@@ -47,13 +48,40 @@ if ($hostnameIndex === false){
 	exit("nohost $requestIp $requestHostname");
 }
 
+// The request IP i.e. the ddns IP to update the hostname with
+if (!isset($_GET['myip'])) {
+	exit('911 new IP address not specified');
+}
+
+// TODO: sanitize values
+$requestIp = $_GET['myip'];
+
 //Exit if credentials don't match the domain authorized user
 if (!(($authUsers[$hostnameIndex] === $requestUser) && ($authPasswords[$hostnameIndex] === $requestPassword))){
 	exit("badauth $requestIp $requestHostname");
 }
 
+/******************************************
+* Validate cPanel credentials are provided
+*******************************************/
+if (isset($cpUser)){
+	// try for api token first then password
+	if (isset($cpToken)){
+		$cpAuthString="Authorization: cpanel $cpUser:$cpToken";
+	} elseif (isset($cpPassword)){
+		$cpAuthString="Authorization: Basic ".base64_encode("$cpUser:$cpPassword");
+	} else {
+		exit("badauth $requestIp $requestHostname");
+	}
+} else {
+	exit("badauth $requestIp $requestHostname");
+}
+
+/******************************************
+* get existing domains from cPanel
+*******************************************/
 $query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=DomainLookup&cpanel_jsonapi_func=getbasedomains";
-$response = queryApi($cpUser, $cpPassword, $cpServer, $cpPort, $query);
+$response = queryApi($cpAuthString, $cpServer, $cpPort, $query);
 
 $jsonCpanelResult=$response->cpanelresult;
 $result=$jsonCpanelResult->event->result;
@@ -74,13 +102,17 @@ foreach($jsonUserDomains as $userDomain){
 	$userDomains[]=$userDomain->domain;
 }
 
-$hostnameLevels = explode(".",$requestHostname);
+/******************************************
+* process user domains to match requestHostname
+*******************************************/
+
+$hostnameLevels = explode('.',$requestHostname);
 
 //generate array of domain names to search
 //for example, sub.domain.com would search
 //sub.domain.com, domain.com, for the record
 for ($i = 0 ; $i < (sizeof($hostnameLevels)-1) ; $i++){
-	$possibleDomains[]=implode(".",array_slice($hostnameLevels,$i));
+	$possibleDomains[]=implode('.',array_slice($hostnameLevels,$i));
 }
 
 //reverse the array so foreach will go from shortest to longest name
@@ -89,10 +121,10 @@ $possibleDomains=array_reverse($possibleDomains);
 //Will be set to true when the record is found
 $foundHostnameRecord=false;
 
-//determine if any of the possible domains from the hostname is one of the users domains
+//determine if any of the possible domains from the hostname is one of the users domains (subdomain or addon domain)
 foreach($possibleDomains as $possibleDomain){
 	$domainPart=$possibleDomain;
-	$domainLevelCount=sizeof(explode(".",$domainPart));
+	$domainLevelCount=sizeof(explode('.',$domainPart));
 
 	$hostLevelCount=sizeof($hostnameLevels)-$domainLevelCount;
 	$hostPart=implode(".",array_slice($hostnameLevels,0,$hostLevelCount));
@@ -104,7 +136,7 @@ foreach($possibleDomains as $possibleDomain){
 
 		//Query for $requestHostname in the list of $matchedDomainPart records
 		$query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=ZoneEdit&cpanel_jsonapi_func=fetchzone_records&domain=" . $matchedDomainPart . "&name=" . $requestHostname . ".&type=A";
-		$response = queryApi($cpUser, $cpPassword, $cpServer, $cpPort, $query);
+		$response = queryApi($cpAuthString, $cpServer, $cpPort, $query);
 		$jsonCpanelResult=$response->cpanelresult;
 		$result=$jsonCpanelResult->event->result;
 
@@ -131,11 +163,11 @@ if($foundHostnameRecord){
 	}
 	//hostPart is empty when we edit the domain-record itself
 	if($hostPart == ""){
-		$hostPart = $domainPart.".";
+		$hostPart = $domainPart.'.';
 	}
 	//found the record, so update it since we know the $domainPart, $hostPart, and $hostnameLine
 	$query="/json-api/cpanel?cpanel_jsonapi_user=" . $cpUser . "&cpanel_jsonapi_apiversion=2&cpanel_jsonapi_module=ZoneEdit&cpanel_jsonapi_func=edit_zone_record&domain=" . $domainPart . "&name=" . $hostPart . "&line=" . $hostnameLine . "&type=A" . "&address=" . $requestIp;
-        $response = queryApi($cpUser, $cpPassword, $cpServer, $cpPort, $query);
+        $response = queryApi($cpAuthString, $cpServer, $cpPort, $query);
 	$jsonCpanelResult=$response->cpanelresult;
 	$status=$jsonCpanelResult->data[0]->result->status;
 	if($status == 1){
@@ -152,13 +184,13 @@ if($foundHostnameRecord){
 * Helpers
 **********************************/
 
-function queryApi($user, $password, $server, $port, $query){
-	$headerArray[0] = "Authorization: Basic " . base64_encode($user.":".$password);
+function queryApi($authString, $server, $port, $query){
+	$headerArray[0] = $authString;
 
 	$curl = curl_init();
-	curl_setopt($curl, CURLOPT_RETURNTRANSFER,true);
+	curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 	curl_setopt($curl, CURLOPT_HTTPHEADER, $headerArray);
-	curl_setopt($curl, CURLOPT_URL, $server . ":" . $port . $query);
+	curl_setopt($curl, CURLOPT_URL, "https://$server:$port$query");
 
 	$response = curl_exec($curl);
 	curl_close($curl);
