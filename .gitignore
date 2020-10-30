@@ -1,2 +1,4 @@
-**/[Cc]onfig.php
-**/error_log
+[Cc]onfig.php
+test[Cc]onfig.php
+server[Cc]onfig.php
+error_log
