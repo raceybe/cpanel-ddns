@@ -1,6 +1,6 @@
 # cpanel-ddns
 
-This project is intended to provide a cPanel server environment which mimics a DynDns compatible server. The credentials, hostname, and IP addresses are supplied to the script through a GET HTTPS request made by the client. The server script processes this request, extracts the credentials, hostname, and IP address and pushes the update to the cPanel DNS server through the cPanel API 2 interface. A response is returned to the client by outputting a string containing the response code and the request information, if applicable. The expected responses are described at https://www.dnsomatic.com/wiki/api and https://help.dyn.com/remote-access-api/return-codes/.
+This project is intended to provide a cPanel server environment which mimics a DynDns compatible server using the dyndns2 protocol. The credentials, hostname, and IP addresses are supplied to the script through a GET HTTPS request made by the client. The server script processes this request, extracts the credentials, hostname, and IP address and pushes the update to the cPanel DNS server through the cPanel API 2 interface. A response is returned to the client by outputting a string containing the response code and the request information, if applicable. The expected responses are described at https://www.dnsomatic.com/wiki/api and https://help.dyn.com/remote-access-api/return-codes/.
 
 ## Getting Started
 
@@ -39,18 +39,19 @@ The requirements of the update server are the following:
 5b. If using an external server, configure a domain or sub-domain to host the update script, e.g. example.net, ddns.example.net, etc.
 6. On the above configured server, upload the scripts to the root of the web server. This includes the following files:
 ```
-config.example.php
+.htaccess
+testConfig.example.php
 testclient.php
-nic\.htaccess
-nic\config.example.php
-nic\update.php
+serverConfig.example.php
+update.php
 ```
-7. Rename nic\config.example.php to nic\config.php. Update the appropriate values for each variable
+7. Rename serverConfig.example.php to serverConfig.php. Update the appropriate values for each variable
 ```
 //cPanel API user, password, server, and port
 $cpUser = 'cpanelusername';
 $cpPassword = 'cpanelpassword';
-$cpServer = 'https://server.example.com';
+$cpToken = 'cpanelapitoken';
+$cpServer = 'server.example.com';
 $cpPort = '2083';
 
 //Authorized ddns users, passwords, and hostnames
@@ -60,14 +61,14 @@ $authHostnames=array('user1host.example.net','user2host.example.net');
 ```
 8. $cpUser and $cpPassword contain the cPanel credentials. $cpServer is the server which you would normally use to login to your cPanel account. $cpPort is the port over which the API communication is done. Don't change this unless you know what you're doing.
 9. A simple authentication method uses the array of $authHostnames to contain the hostnames which can be updated by an authenticated request. The $authUsers and $authPasswords values for a given index should correspond to the same index for the $authHostnames array.
-10. Rename config.example.php to config.php. Update the appropriate values for each variable
+10. Rename testConfig.example.php to testConfig.php. Update the appropriate values for each variable
 ```
 //ddns client configuration details
 $myip='1.2.3.4';
 $hostname='user1host.example.net';
 $login='user1';
 $password='user1password';
-$server='ddns.example.com';
+$serverHostname='ddns.example.com';
 ```
 11. $myip is the address, and $hostname is the hostname which will be updated when using testclient.php. This hostname must exist $authHostnames in nic\config.php
 12. $login and $password must match the appropriate index in $authUsers and $authPasswords.
