@@ -96,6 +96,10 @@ dnserr <= there is an error in the cPanel DNS configuration such that the query 
 911 <= there is some other error in the update server configuration causing issues
 ```
 
+Instead of using the `testclient.php` script, you can also issue a straight curl command with the following format:
+
+`curl 'https://user:password@ddns.example.net/nic/update?hostname=remote.example.net&myip=1.2.3.4'`
+
 The links at https://www.dnsomatic.com/wiki/api and https://help.dyn.com/remote-access-api/return-codes/ describe the codes in more detail. There are also some extra codes which have not been implemented yet, but perhaps will be in the future.
 
 After the basic functionality is confirmed to work, update your ddns client with the appropriate hostname, user, password, and update server and force an update. Check the cPanel DNS configuration to ensure it was updated with the expected IP address. If the update was successful you could, and should, delete testclient.php and the corresponding config.php files since anyone accessing testclient.php would update it with the test IP address.
