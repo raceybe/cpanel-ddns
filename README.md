@@ -2,6 +2,8 @@
 
 This project is intended to provide a cPanel server environment which mimics a DynDns compatible server using the dyndns2 protocol. The credentials, hostname, and IP addresses are supplied to the script through a GET HTTPS request made by the client. The server script processes this request, extracts the credentials, hostname, and IP address and pushes the update to the cPanel DNS server through the cPanel API 2 interface. A response is returned to the client by outputting a string containing the response code and the request information, if applicable. The expected responses are described at https://www.dnsomatic.com/wiki/api and https://help.dyn.com/remote-access-api/return-codes/.
 
+This code comes with no warranty at all! I will help if I can, but there are no guarantees!
+
 ## Getting Started
 
 These instructions assume you have basic working knowledge of cPanel, PHP, and DNS. There is also the assumption that your client (router, script, etc.) is capable of supplying the properly formed GET HTTPS request. It is important to note that modern web browsers tend to discourage (or prevent) the use of the HTTP Basic authentication method by supplying the credentials in the URL similar to the following:
