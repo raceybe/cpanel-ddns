@@ -1,4 +1,11 @@
 <?php
+/*******************************************************************
+* YOU MUST RENAME THIS SCRIPT TO SOMETHING RANDOM AND UNGUESSABLE
+* ANYONE CAN HIT THIS SCRIPT AND IT WILL UPDATE THE IP
+*
+* I'd like to add the ability to track requests in a text file that
+* prunes periodically and blocks repeated url guesses
+********************************************************************/
 require 'serverConfig.php';
 
 // this is your ddns update server to send the curl request to (not cPanel server name)
